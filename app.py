@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 import uuid
+from collections import defaultdict
 
 APP_TITLE = "Macro-Aware Meal Planner"
 
@@ -20,7 +21,7 @@ def load_data(file):
     return df
 
 def ensure_state():
-    st.session_state.setdefault("selected_meals", [])
+    st.session_state.setdefault("selected_meals", [])  # list of individual entries (allows duplicates)
     st.session_state.setdefault("totals", {"Protein":0.0,"Carb":0.0,"Fat":0.0})
 
 def add_meal(row_dict):
@@ -31,11 +32,13 @@ def add_meal(row_dict):
     for k in ["Protein","Carb","Fat"]:
         st.session_state["totals"][k] += float(entry.get(k,0.0))
 
-def remove_meal(uid):
-    keep = []
+def remove_one_matching(row_dict):
+    """Remove exactly one instance matching the provided meal macro tuple."""
+    keys = ["Meal name","Meal type","Protein","Carb","Fat"]
     removed = None
+    keep = []
     for m in st.session_state["selected_meals"]:
-        if m.get("uid") == uid and removed is None:
+        if removed is None and all(m.get(k)==row_dict.get(k) for k in keys):
             removed = m
         else:
             keep.append(m)
@@ -56,6 +59,19 @@ def macro_badge(label, value, max_value):
         return f"{label}: {used:.1f} / {cap:.0f} ({pct}%)"
     else:
         return f"{label}: {used:.1f}"
+
+def fits_caps(row, remaining):
+    return (row["Protein"] <= remaining["Protein"]) and (row["Carb"] <= remaining["Carb"]) and (row["Fat"] <= remaining["Fat"])
+
+def group_selected_meals(rows):
+    """Group identical meals and count occurrences; return list of dicts with qty."""
+    groups = {}
+    for m in rows:
+        key = (m["Meal name"], m.get("Meal type",""), float(m["Protein"]), float(m["Carb"]), float(m["Fat"]))
+        if key not in groups:
+            groups[key] = {"Meal name": key[0], "Meal type": key[1], "Protein": key[2], "Carb": key[3], "Fat": key[4], "qty": 0}
+        groups[key]["qty"] += 1
+    return list(groups.values())
 
 def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="🥗", layout="wide")
@@ -101,19 +117,14 @@ def main():
     if selected_types and "Meal type" in view.columns:
         view = view[view["Meal type"].isin(selected_types)]
 
-    # Allow the same meal to appear even if already selected
-
-    # Now filter by not exceeding remaining capacity
-    def fits(row):
-        return (row["Protein"] <= rem["Protein"]) and (row["Carb"] <= rem["Carb"]) and (row["Fat"] <= rem["Fat"])
-
-    safe = view[view.apply(fits, axis=1)]
+    # Now filter by not exceeding remaining capacity for a single add
+    safe = view[view.apply(lambda r: fits_caps(r, rem), axis=1)]
 
     # Left: available meals; Right: selected plan and summary
     left, right = st.columns([2,1])
 
     with left:
-        st.subheader("Available meals (won't exceed your remaining caps)")
+        st.subheading = st.subheader("Available meals (won't exceed your remaining caps on next add)")
         if safe.empty:
             st.info("No meals fit under the remaining caps. Remove a meal or increase your caps.")
         else:
@@ -145,17 +156,36 @@ def main():
             st.progress(min(1.0, st.session_state['totals']['Carb']/caps['Carb'] if caps['Carb'] else 0.0))
             st.progress(min(1.0, st.session_state['totals']['Fat']/caps['Fat'] if caps['Fat'] else 0.0))
 
-            # Selected list
-            for m in st.session_state["selected_meals"]:
+            # Group duplicates for a cleaner UI and unlimited repeats
+            grouped = group_selected_meals(st.session_state["selected_meals"])
+            for g in grouped:
                 with st.container(border=True):
-                    c1, c2, c3, c4, c5 = st.columns([3,2,2,2,2])
-                    c1.markdown(f"**{m['Meal name']}**  \n_{m.get('Meal type','')}_")
-                    c2.metric("Protein", f"{m['Protein']:.1f} g")
-                    c3.metric("Carbs", f"{m['Carb']:.1f} g")
-                    c4.metric("Fat", f"{m['Fat']:.1f} g")
-                    # Use unique uid for the remove button key to avoid duplicates
-                    if c5.button("Remove ❌", key=f"rm_{m.get('uid','') or id(m)}"):
-                        remove_meal(m.get("uid",""))
+                    c1, c2, c3, c4, c5, c6 = st.columns([3,2,2,2,2,2])
+                    c1.markdown(f"**{g['Meal name']}**  \n_{g.get('Meal type','')}_")
+                    c2.metric("Qty", f"{g['qty']}")
+                    c3.metric("Protein", f"{g['Protein']*g['qty']:.1f} g")
+                    c4.metric("Carbs", f"{g['Carb']*g['qty']:.1f} g")
+                    c5.metric("Fat", f"{g['Fat']*g['qty']:.1f} g")
+
+                    # Build a row dict representing one unit of this meal
+                    unit = {"Meal name": g["Meal name"], "Meal type": g.get("Meal type",""),
+                            "Protein": g["Protein"], "Carb": g["Carb"], "Fat": g["Fat"]}
+
+                    # Plus button: only add if the next one fits remaining caps
+                    rem_now = {k: max(0.0, caps[k] - st.session_state["totals"][k]) for k in ["Protein","Carb","Fat"]}
+                    can_add_one_more = fits_caps(unit, rem_now)
+
+                    # Keys unique per meal group
+                    group_hash = hash((g['Meal name'], g.get('Meal type',''), g['Protein'], g['Carb'], g['Fat']))
+                    add_key = f"inc_{group_hash}"
+                    dec_key = f"dec_{group_hash}"
+
+                    cols = c6.columns(2)
+                    if cols[0].button("＋", key=add_key, disabled=not can_add_one_more):
+                        add_meal(unit)
+                        st.rerun()
+                    if cols[1].button("－", key=dec_key):
+                        remove_one_matching(unit)
                         st.rerun()
 
             # Download plan
