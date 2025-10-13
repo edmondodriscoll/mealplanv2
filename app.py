@@ -1,6 +1,7 @@
 
 import streamlit as st
 import pandas as pd
+import uuid
 
 APP_TITLE = "Macro-Aware Meal Planner"
 
@@ -23,17 +24,18 @@ def ensure_state():
     st.session_state.setdefault("totals", {"Protein":0.0,"Carb":0.0,"Fat":0.0})
 
 def add_meal(row_dict):
-    # add if not already selected
-    # Allow the same meal to be added multiple times
-    st.session_state["selected_meals"].append(row_dict)
+    # Allow duplicates by assigning a unique id per added instance
+    entry = dict(row_dict)
+    entry["uid"] = str(uuid.uuid4())
+    st.session_state["selected_meals"].append(entry)
     for k in ["Protein","Carb","Fat"]:
-        st.session_state["totals"][k] += float(row_dict.get(k,0.0))
+        st.session_state["totals"][k] += float(entry.get(k,0.0))
 
-def remove_meal(meal_name):
+def remove_meal(uid):
     keep = []
     removed = None
     for m in st.session_state["selected_meals"]:
-        if m["Meal name"] == meal_name:
+        if m.get("uid") == uid and removed is None:
             removed = m
         else:
             keep.append(m)
@@ -151,8 +153,9 @@ def main():
                     c2.metric("Protein", f"{m['Protein']:.1f} g")
                     c3.metric("Carbs", f"{m['Carb']:.1f} g")
                     c4.metric("Fat", f"{m['Fat']:.1f} g")
-                    if c5.button("Remove ❌", key=f"rm_{m['Meal name']}"):
-                        remove_meal(m["Meal name"])
+                    # Use unique uid for the remove button key to avoid duplicates
+                    if c5.button("Remove ❌", key=f"rm_{m.get('uid','') or id(m)}"):
+                        remove_meal(m.get("uid",""))
                         st.rerun()
 
             # Download plan
