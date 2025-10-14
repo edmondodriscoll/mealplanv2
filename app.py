@@ -227,17 +227,25 @@ def main():
             df = None
 
             if src == "Google Sheet":
-                # Read secrets (fails gracefully with a helpful error)
                 try:
                     sheet_id = st.secrets.get("GOOGLE_SHEET_ID", "")
                     worksheet_name = st.secrets.get("GOOGLE_WORKSHEET_NAME", "Sheet1")
                     if not sheet_id:
                         raise RuntimeError("GOOGLE_SHEET_ID is not set in secrets.")
+            
                     df = load_data_gsheet(sheet_id, worksheet_name)
                     st.caption(f"Using Google Sheet: {sheet_id} — worksheet: {worksheet_name}")
+            
+                    # 👇 NEW: manual refresh button
+                    if st.button("🔄 Refresh Google Sheet data", use_container_width=True):
+                        load_data_gsheet.clear()   # bust cache for this function
+                        st.success("Refreshed Google Sheet data.")
+                        st.rerun()
+            
                 except Exception as e:
                     st.error(f"Error loading Google Sheet: {e}")
                     st.stop()
+
 
             elif src == "Bundled CSV":
                 try:
