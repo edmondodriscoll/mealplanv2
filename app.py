@@ -8,20 +8,23 @@ from pathlib import Path
 
 APP_TITLE = "Macro-Aware Meal Planner"
 SAVED_FILE = Path("saved_meal_plans.json")
+DEFAULT_CSV = Path("Macro_Meals.csv")
+REQUIRED_COLS = ["Meal name","Meal type","Protein","Carb","Fat"]
 
 @st.cache_data
 def load_data(file):
     df = pd.read_csv(file)
     df.columns = [c.strip() for c in df.columns]
+    missing = [c for c in REQUIRED_COLS if c not in df.columns]
+    if missing:
+        raise ValueError(f"CSV is missing required columns: {missing}")
     for col in ["Protein","Carb","Fat"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
-    if "Meal type" in df.columns:
-        df["Meal type"] = df["Meal type"].astype(str).str.strip()
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
+    df["Meal type"] = df["Meal type"].astype(str).str.strip()
     return df
 
 def ensure_state():
-    st.session_state.setdefault("selected_meals", [])  # list of dicts (with uid)
+    st.session_state.setdefault("selected_meals", [])
     st.session_state.setdefault("totals", {"Protein":0.0,"Carb":0.0,"Fat":0.0})
     st.session_state.setdefault("caps", {"Protein":190,"Carb":253,"Fat":57})
 
@@ -59,7 +62,7 @@ def macro_bar(label, used, cap):
     pct = int(round((used / cap * 100) if cap > 0 else 0))
     pct_clamped = max(0, min(100, pct))
     over = cap > 0 and used > cap
-    colour = "#1f77b4" if not over else "#d62728"  # blue / red
+    colour = "#1f77b4" if not over else "#d62728"
     over_text = f" (+{used-cap:.1f} over)" if over else ""
     html = f"""
     <div style="margin:6px 0 12px 0;">
@@ -83,7 +86,6 @@ def group_selected_meals(rows):
         groups[key]["qty"] += 1
     return list(groups.values())
 
-# ---- Saved Plans IO ----
 def read_saved():
     if SAVED_FILE.exists():
         with open(SAVED_FILE, "r", encoding="utf-8") as f:
@@ -101,7 +103,6 @@ def save_current_plan(name):
     if not name.strip():
         st.error("Please enter a plan name.")
         return
-    # Build a serializable payload
     payload = {
         "id": str(uuid.uuid4()),
         "name": name.strip(),
@@ -113,7 +114,6 @@ def save_current_plan(name):
         ]
     }
     plans = read_saved()
-    # If name already exists, append " (n)"
     existing_names = {p["name"] for p in plans}
     base = payload["name"]
     counter = 2
@@ -130,12 +130,11 @@ def load_plan(plan_id):
     if not match:
         st.error("Plan not found.")
         return
-    # Replace current session plan
     st.session_state["selected_meals"] = []
     st.session_state["totals"] = {"Protein":0.0,"Carb":0.0,"Fat":0.0}
     st.session_state["caps"] = match.get("caps", st.session_state["caps"])
     for m in match.get("meals", []):
-        add_meal(m)  # will add uid and update totals
+        add_meal(m)
     st.success(f"Loaded plan “{match['name']}”.")
     st.experimental_rerun()
 
@@ -146,11 +145,15 @@ def delete_plan(plan_id):
     st.success("Deleted saved plan.")
     st.experimental_rerun()
 
-def format_time(ts):
-    try:
-        return time.strftime("%Y-%m-%d %H:%M", time.localtime(int(ts)))
-    except Exception:
-        return "unknown"
+def replace_default_with(df: pd.DataFrame):
+    missing = [c for c in REQUIRED_COLS if c not in df.columns]
+    if missing:
+        raise ValueError(f"Uploaded CSV missing required columns: {missing}")
+    cols = REQUIRED_COLS + [c for c in df.columns if c not in REQUIRED_COLS]
+    df = df[cols]
+    df.to_csv(DEFAULT_CSV, index=False, encoding="utf-8")
+    load_data.clear()
+    st.success("Default CSV replaced successfully. The app now uses this as the default dataset.")
 
 def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="🥗", layout="wide")
@@ -159,22 +162,38 @@ def main():
 
     tabs = st.tabs(["🧰 Builder", "💾 Saved Plans"])
 
-    # ===== Builder Tab =====
     with tabs[0]:
-        # Sidebar controls
         with st.sidebar:
             st.header("Data")
+            st.caption(f"Current default file: `{DEFAULT_CSV}`")
+
             src = st.radio("Choose data source", ["Bundled CSV", "Upload CSV"])
             if src == "Bundled CSV":
-                data_file = "Macro_Meals.csv"
+                data_file = str(DEFAULT_CSV)
+                upload = None
             else:
-                upload = st.file_uploader("Upload a CSV with columns: Meal name, Meal type, Protein, Carb, Fat", type=["csv"])
-                if upload is None:
-                    st.info("Please upload a CSV to proceed.")
-                    st.stop()
-                data_file = upload
+                upload = st.file_uploader(
+                    "Upload a CSV with columns: Meal name, Meal type, Protein, Carb, Fat",
+                    type=["csv"],
+                    accept_multiple_files=False
+                )
+                data_file = upload if upload is not None else str(DEFAULT_CSV)
 
-            df = load_data(data_file)
+            try:
+                df = load_data(data_file)
+            except Exception as e:
+                st.error(f"Error loading data: {e}")
+                st.stop()
+
+            if upload is not None:
+                st.markdown("**Uploaded CSV preview:**")
+                st.dataframe(df.head(20), use_container_width=True)
+                if st.button("Make this the new default CSV (overwrite Macro_Meals.csv)", type="primary"):
+                    try:
+                        raw_df = pd.read_csv(upload)
+                        replace_default_with(raw_df)
+                    except Exception as e:
+                        st.error(f"Couldn't replace default: {e}")
 
             st.header("Daily Macro Caps")
             max_protein = st.number_input("Max Protein (g)", min_value=0, value=int(st.session_state["caps"]["Protein"]), step=5)
@@ -189,7 +208,6 @@ def main():
 
             st.button("Reset plan", on_click=reset_plan, use_container_width=True)
 
-        # Filter meals by type only (caps do not restrict availability)
         view = df.copy()
         if selected_types and "Meal type" in view.columns:
             view = view[view["Meal type"].isin(selected_types)]
@@ -250,14 +268,12 @@ def main():
                             remove_one_matching(unit)
                             st.rerun()
 
-                # Save / download
                 with st.container(border=True):
                     st.markdown("**Save or export your plan**")
                     plan_name = st.text_input("Plan name", placeholder="e.g., High Protein Monday")
                     colA, colB = st.columns(2)
                     if colA.button("💾 Save plan", use_container_width=True):
                         save_current_plan(plan_name or f"Plan {time.strftime('%Y-%m-%d %H:%M')}")
-                    # CSV export
                     plan_df = pd.DataFrame(st.session_state["selected_meals"])
                     plan_df["Count"] = 1
                     totals_row = pd.DataFrame([{
@@ -280,21 +296,16 @@ def main():
         with st.expander("Preview full dataset"):
             st.dataframe(df, use_container_width=True)
 
-    # ===== Saved Plans Tab =====
     with tabs[1]:
         st.subheader("Saved Meal Plans")
         plans = read_saved()
         if not plans:
             st.info("No saved plans yet. Build a plan in the **Builder** tab and click **Save plan**.")
         else:
-            # Sort newest first
             plans_sorted = sorted(plans, key=lambda p: p.get("timestamp", 0), reverse=True)
             names = [f"{p['name']} — {time.strftime('%Y-%m-%d %H:%M', time.localtime(p.get('timestamp',0)))}" for p in plans_sorted]
-            ids = [p["id"] for p in plans_sorted]
             sel = st.selectbox("Choose a saved plan", options=list(range(len(plans_sorted))), format_func=lambda i: names[i])
             chosen = plans_sorted[sel]
-
-            # Show summary
             caps = chosen.get("caps", {"Protein":0,"Carb":0,"Fat":0})
             meals_df = pd.DataFrame(chosen.get("meals", []))
             totals = {
@@ -311,10 +322,13 @@ def main():
                 load_plan(chosen["id"])
             if c2.button("🗑️ Delete", use_container_width=True):
                 delete_plan(chosen["id"])
-            if c3.download_button("⬇️ Export JSON", data=json.dumps(chosen, indent=2).encode("utf-8"),
-                                  file_name=f"{chosen['name'].replace(' ','_')}.json", mime="application/json",
-                                  use_container_width=True):
-                pass
+            c3.download_button(
+                "⬇️ Export JSON",
+                data=json.dumps(chosen, indent=2).encode("utf-8"),
+                file_name=f"{chosen['name'].replace(' ','_')}.json",
+                mime="application/json",
+                use_container_width=True
+            )
 
 if __name__ == "__main__":
     main()
