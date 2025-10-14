@@ -114,25 +114,28 @@ def write_saved(plans):
 
 def save_current_plan(name):
     if not name.strip():
-        st.error('Please enter a plan name.')
+        st.error("Please enter a plan name.")
         return
     payload = {
-        'id': str(uuid.uuid4()),
-        'name': name.strip(),
-        'timestamp': int(time.time()),
-        'caps': st.session_state['caps'],
-        'meals': [{k: v for k, v in m.items() if k != 'uid'} for m in st.session_state['selected_meals']]
+        "id": str(uuid.uuid4()),
+        "name": name.strip(),
+        "timestamp": int(time.time()),
+        "caps": st.session_state["caps"],
+        "meals": [
+            {k: v for k, v in m.items() if k != "uid"}
+            for m in st.session_state["selected_meals"]
+        ]
     }
     plans = read_saved()
-    existing_names = {p['name'] for p in plans}
-    base = payload['name']
+    existing_names = {p["name"] for p in plans}
+    base = payload["name"]
     counter = 2
-    while payload['name'] in existing_names:
-        payload['name'] = f'{base} ({counter})'
+    while payload["name"] in existing_names:
+        payload["name"] = f"{base} ({counter})"
         counter += 1
     plans.append(payload)
     write_saved(plans)
-    st.success(f'Saved plan as “{payload[' + "'name'" + ']}”.')
+    st.success(f'Saved plan as “{payload["name"]}”.')
 
 def load_plan(plan_id):
     plans = read_saved()
