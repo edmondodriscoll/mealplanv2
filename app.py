@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import uuid
@@ -6,22 +5,72 @@ import json
 import time
 from pathlib import Path
 
+# NEW: gspread for Google Sheets
+import gspread
+
 APP_TITLE = "Macro-Aware Meal Planner"
 SAVED_FILE = Path("saved_meal_plans.json")
 DEFAULT_CSV = Path("Macro_Meals.csv")
 REQUIRED_COLS = ["Meal name","Meal type","Protein","Carb","Fat"]
 
-@st.cache_data
-def load_data(file):
-    df = pd.read_csv(file)
+# -------------------------------
+# Data loading
+# -------------------------------
+
+@st.cache_data(show_spinner=False)
+def _coerce_and_validate(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
     df.columns = [c.strip() for c in df.columns]
     missing = [c for c in REQUIRED_COLS if c not in df.columns]
     if missing:
-        raise ValueError(f"CSV is missing required columns: {missing}")
+        raise ValueError(f"Dataset is missing required columns: {missing}")
     for col in ["Protein","Carb","Fat"]:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
     df["Meal type"] = df["Meal type"].astype(str).str.strip()
-    return df
+    # keep required cols first (then any extras)
+    cols = REQUIRED_COLS + [c for c in df.columns if c not in REQUIRED_COLS]
+    return df[cols]
+
+@st.cache_data(show_spinner=False)
+def load_data_csv(file) -> pd.DataFrame:
+    df = pd.read_csv(file)
+    return _coerce_and_validate(df)
+
+@st.cache_data(show_spinner=True, ttl=300)
+def load_data_gsheet(sheet_id: str, worksheet_name: str) -> pd.DataFrame:
+    """
+    Reads a Google Sheet into a DataFrame using a Service Account from st.secrets.
+    Requires:
+      - st.secrets["gcp_service_account"] (the full service-account JSON as a TOML table)
+      - st.secrets["GOOGLE_SHEET_ID"]
+      - st.secrets["GOOGLE_WORKSHEET_NAME"]
+    """
+    try:
+        sa_info = st.secrets["gcp_service_account"]
+    except Exception:
+        raise RuntimeError(
+            "No Google credentials found. Add a [gcp_service_account] block to your secrets."
+        )
+
+    # Authenticate using dict (no local file needed)
+    gc = gspread.service_account_from_dict(dict(sa_info))
+    sh = gc.open_by_key(sheet_id)
+    ws = sh.worksheet(worksheet_name)
+
+    # Fetch all values (first row = header)
+    data = ws.get_all_records(numericise_ignore=['all'])  # don't auto-coerce; we handle below
+    if not data:
+        # fallback to header-only if sheet is empty
+        header = ws.row_values(1) if ws.row_values(1) else REQUIRED_COLS
+        df = pd.DataFrame(columns=header)
+    else:
+        df = pd.DataFrame(data)
+
+    return _coerce_and_validate(df)
+
+# -------------------------------
+# App state & helpers
+# -------------------------------
 
 def ensure_state():
     st.session_state.setdefault("selected_meals", [])
@@ -152,8 +201,12 @@ def replace_default_with(df: pd.DataFrame):
     cols = REQUIRED_COLS + [c for c in df.columns if c not in REQUIRED_COLS]
     df = df[cols]
     df.to_csv(DEFAULT_CSV, index=False, encoding="utf-8")
-    load_data.clear()
+    load_data_csv.clear()
     st.success("Default CSV replaced successfully. The app now uses this as the default dataset.")
+
+# -------------------------------
+# Main UI
+# -------------------------------
 
 def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="🥗", layout="wide")
@@ -167,47 +220,70 @@ def main():
             st.header("Data")
             st.caption(f"Current default file: `{DEFAULT_CSV}`")
 
-            src = st.radio("Choose data source", ["Bundled CSV", "Upload CSV"])
-            if src == "Bundled CSV":
-                data_file = str(DEFAULT_CSV)
-                upload = None
-            else:
+            # NEW: add Google Sheet option
+            src = st.radio("Choose data source", ["Google Sheet", "Bundled CSV", "Upload CSV"])
+
+            upload = None
+            df = None
+
+            if src == "Google Sheet":
+                # Read secrets (fails gracefully with a helpful error)
+                try:
+                    sheet_id = st.secrets.get("GOOGLE_SHEET_ID", "")
+                    worksheet_name = st.secrets.get("GOOGLE_WORKSHEET_NAME", "Sheet1")
+                    if not sheet_id:
+                        raise RuntimeError("GOOGLE_SHEET_ID is not set in secrets.")
+                    df = load_data_gsheet(sheet_id, worksheet_name)
+                    st.caption(f"Using Google Sheet: {sheet_id} — worksheet: {worksheet_name}")
+                except Exception as e:
+                    st.error(f"Error loading Google Sheet: {e}")
+                    st.stop()
+
+            elif src == "Bundled CSV":
+                try:
+                    df = load_data_csv(str(DEFAULT_CSV))
+                except Exception as e:
+                    st.error(f"Error loading data: {e}")
+                    st.stop()
+
+            else:  # "Upload CSV"
                 upload = st.file_uploader(
                     "Upload a CSV with columns: Meal name, Meal type, Protein, Carb, Fat",
                     type=["csv"],
                     accept_multiple_files=False
                 )
                 data_file = upload if upload is not None else str(DEFAULT_CSV)
+                try:
+                    df = load_data_csv(data_file)
+                except Exception as e:
+                    st.error(f"Error loading data: {e}")
+                    st.stop()
 
-            try:
-                df = load_data(data_file)
-            except Exception as e:
-                st.error(f"Error loading data: {e}")
-                st.stop()
+                if upload is not None:
+                    st.markdown("**Uploaded CSV preview:**")
+                    st.dataframe(df.head(20), use_container_width=True)
+                    if st.button("Make this the new default CSV (overwrite Macro_Meals.csv)", type="primary"):
+                        try:
+                            raw_df = pd.read_csv(upload)
+                            replace_default_with(raw_df)
+                        except Exception as e:
+                            st.error(f"Couldn't replace default: {e}")
 
-            if upload is not None:
-                st.markdown("**Uploaded CSV preview:**")
-                st.dataframe(df.head(20), use_container_width=True)
-                if st.button("Make this the new default CSV (overwrite Macro_Meals.csv)", type="primary"):
-                    try:
-                        raw_df = pd.read_csv(upload)
-                        replace_default_with(raw_df)
-                    except Exception as e:
-                        st.error(f"Couldn't replace default: {e}")
-
+            # Caps
             st.header("Daily Macro Caps")
             max_protein = st.number_input("Max Protein (g)", min_value=0, value=int(st.session_state["caps"]["Protein"]), step=5)
             max_carb = st.number_input("Max Carbs (g)", min_value=0, value=int(st.session_state["caps"]["Carb"]), step=5)
             max_fat = st.number_input("Max Fat (g)", min_value=0, value=int(st.session_state["caps"]["Fat"]), step=1)
-            caps = {"Protein": max_protein, "Carb": max_carb, "Fat": max_fat}
             set_caps(max_protein, max_carb, max_fat)
 
+            # Filters
             st.header("Filters")
             meal_types = sorted(df["Meal type"].dropna().unique().tolist()) if "Meal type" in df.columns else []
             selected_types = st.multiselect("Meal types to include", options=meal_types, default=meal_types)
 
             st.button("Reset plan", on_click=reset_plan, use_container_width=True)
 
+        # Main builder
         view = df.copy()
         if selected_types and "Meal type" in view.columns:
             view = view[view["Meal type"].isin(selected_types)]
