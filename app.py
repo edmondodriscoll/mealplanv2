@@ -304,10 +304,29 @@ def main():
 
             st.button("Reset plan", on_click=reset_plan, use_container_width=True)
 
-        # Main builder
+        # ---------- Builder main list ----------
         view = df.copy()
         if selected_types and "Meal type" in view.columns:
             view = view[view["Meal type"].isin(selected_types)]
+
+        # Compute "would exceed cap?" flag for each meal based on current totals & caps
+        totals = st.session_state["totals"]
+        caps = st.session_state["caps"]
+
+        def would_exceed(row) -> bool:
+            # Exceed if adding this meal would push any macro over a *positive* cap
+            for k in ["Protein", "Carb", "Fat"]:
+                cap = float(caps.get(k, 0) or 0)
+                if cap > 0:
+                    if float(totals.get(k, 0)) + float(row[k]) > cap:
+                        return True
+            return False
+
+        if not view.empty:
+            view = view.copy()
+            view["would_exceed"] = view.apply(would_exceed, axis=1)
+            # Sort: safe meals first (False), then by Meal type and Meal name
+            view = view.sort_values(by=["would_exceed", "Meal type", "Meal name"], ascending=[True, True, True])
 
         left, right = st.columns([2,1])
 
@@ -316,14 +335,42 @@ def main():
             if view.empty:
                 st.info("No meals available with current filters.")
             else:
-                for idx, row in view.sort_values(by=["Meal type","Meal name"]).iterrows():
+                for idx, row in view.iterrows():
+                    risky = bool(row.get("would_exceed", False))
+                    # subtle grey for risky items
+                    bg = "#f7f7f7" if risky else "#ffffff"
+                    text_opacity = 0.55 if risky else 1.0
+                    note = " <span style='color:#b94a48;'>⚠️ would exceed caps</span>" if risky else ""
+
                     with st.container(border=True):
+                        # Background + content wrapper
+                        st.markdown(
+                            f"""
+                            <div style="background:{bg}; border-radius:10px; padding:8px;">
+                                <div style="opacity:{text_opacity};">
+                                    <div style="display:flex; gap:12px; align-items:center; justify-content:space-between;">
+                                        <div style="flex:1;">
+                                            <div style="font-weight:700;">{row['Meal name']}</div>
+                                            <div style="font-style:italic; color:#666;">{row.get('Meal type','')}</div>
+                                        </div>
+                                        <div style="white-space:nowrap;">{note}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
                         c1, c2, c3, c4, c5 = st.columns([3,2,2,2,2])
-                        c1.markdown(f"**{row['Meal name']}**  \n_{row.get('Meal type','')}_")
+                        # Repeat the metrics (metrics can't be easily dimmed, but the header above is)
+                        c1.empty()  # name already shown above
                         c2.metric("Protein", f"{row['Protein']:.1f} g")
                         c3.metric("Carbs", f"{row['Carb']:.1f} g")
                         c4.metric("Fat", f"{row['Fat']:.1f} g")
-                        if c5.button("Add ➕", key=f"add_{idx}"):
+
+                        btn_label = "Add ➕" if not risky else "Add ➕"
+                        btn_help = None if not risky else "Adding this will push one or more macros over its cap."
+                        if c5.button(btn_label, key=f"add_{idx}", help=btn_help, type=("secondary" if risky else "primary")):
                             add_meal(row[["Meal name","Meal type","Protein","Carb","Fat"]].to_dict())
                             st.rerun()
 
