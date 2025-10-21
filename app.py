@@ -27,7 +27,6 @@ def _coerce_and_validate(df: pd.DataFrame) -> pd.DataFrame:
     for col in ["Protein","Carb","Fat"]:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
     df["Meal type"] = df["Meal type"].astype(str).str.strip()
-    # keep required cols first (then any extras)
     cols = REQUIRED_COLS + [c for c in df.columns if c not in REQUIRED_COLS]
     return df[cols]
 
@@ -52,15 +51,12 @@ def load_data_gsheet(sheet_id: str, worksheet_name: str) -> pd.DataFrame:
             "No Google credentials found. Add a [gcp_service_account] block to your secrets."
         )
 
-    # Authenticate using dict (no local file needed)
     gc = gspread.service_account_from_dict(dict(sa_info))
     sh = gc.open_by_key(sheet_id)
     ws = sh.worksheet(worksheet_name)
 
-    # Fetch all values (first row = header)
-    data = ws.get_all_records(numericise_ignore=['all'])  # don't auto-coerce; we handle below
+    data = ws.get_all_records(numericise_ignore=['all'])
     if not data:
-        # fallback to header-only if sheet is empty
         header = ws.row_values(1) if ws.row_values(1) else REQUIRED_COLS
         df = pd.DataFrame(columns=header)
     else:
@@ -180,12 +176,10 @@ def load_plan(plan_id):
         st.error("Plan not found.")
         return
 
-    # reset current session state
     st.session_state["selected_meals"] = []
     st.session_state["totals"] = {"Protein":0.0,"Carb":0.0,"Fat":0.0}
     st.session_state["caps"] = match.get("caps", st.session_state["caps"])
 
-    # ensure numeric types just in case older saves have strings
     for m in match.get("meals", []):
         clean = {
             "Meal name": m.get("Meal name",""),
@@ -232,7 +226,6 @@ def main():
             st.header("Data")
             st.caption(f"Current default file: `{DEFAULT_CSV}`")
 
-            # NEW: add Google Sheet option
             src = st.radio("Choose data source", ["Google Sheet", "Bundled CSV", "Upload CSV"])
 
             upload = None
@@ -244,16 +237,12 @@ def main():
                     worksheet_name = st.secrets.get("GOOGLE_WORKSHEET_NAME", "Sheet1")
                     if not sheet_id:
                         raise RuntimeError("GOOGLE_SHEET_ID is not set in secrets.")
-            
                     df = load_data_gsheet(sheet_id, worksheet_name)
                     st.caption(f"Using Google Sheet: {sheet_id} — worksheet: {worksheet_name}")
-            
-                    # 👇 NEW: manual refresh button
                     if st.button("🔄 Refresh Google Sheet data", use_container_width=True):
-                        load_data_gsheet.clear()   # bust cache for this function
+                        load_data_gsheet.clear()
                         st.success("Refreshed Google Sheet data.")
                         st.rerun()
-            
                 except Exception as e:
                     st.error(f"Error loading Google Sheet: {e}")
                     st.stop()
@@ -398,9 +387,10 @@ def main():
             st.info("No saved plans yet. Build a plan in the **Builder** tab and click **Save plan**.")
         else:
             plans_sorted = sorted(plans, key=lambda p: p.get("timestamp", 0), reverse=True)
-            names = [f"{p['name']} — {time.strftime('%Y-%m-%d %H:%M', time.localtime(p.get('timestamp',0)))}" for p in plans_sorted)]
-            # ^ Fixed bracket mismatch if you copy-pasted earlier versions
-            names = [f"{p['name']} — {time.strftime('%Y-%m-%d %H:%M', time.localtime(p.get('timestamp',0)))}" for p in plans_sorted]
+            names = [
+                f"{p['name']} — {time.strftime('%Y-%m-%d %H:%M', time.localtime(p.get('timestamp', 0)))}"
+                for p in plans_sorted
+            ]
             sel = st.selectbox("Choose a saved plan", options=list(range(len(plans_sorted))), format_func=lambda i: names[i])
             chosen = plans_sorted[sel]
             caps = chosen.get("caps", {"Protein":0,"Carb":0,"Fat":0})
