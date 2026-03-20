@@ -285,6 +285,7 @@ def main():
                     st.dataframe(df.head(20), use_container_width=True)
                     if st.button("Make this the new default CSV (overwrite Macro_Meals.csv)", type="primary"):
                         try:
+                            upload.seek(0)  # reset cursor; it may have been consumed by the initial read
                             raw_df = pd.read_csv(upload)
                             replace_default_with(raw_df)
                         except Exception as e:
@@ -368,7 +369,7 @@ def main():
                         c3.metric("Carbs", f"{row['Carb']:.1f} g")
                         c4.metric("Fat", f"{row['Fat']:.1f} g")
 
-                        btn_label = "Add ➕" if not risky else "Add ➕"
+                        btn_label = "Add ➕"
                         btn_help = None if not risky else "Adding this will push one or more macros over its cap."
                         if c5.button(btn_label, key=f"add_{idx}", help=btn_help, type=("secondary" if risky else "primary")):
                             add_meal(row[["Meal name","Meal type","Protein","Carb","Fat"]].to_dict())
@@ -418,7 +419,7 @@ def main():
                     colA, colB = st.columns(2)
                     if colA.button("💾 Save plan", use_container_width=True):
                         save_current_plan(plan_name or f"Plan {time.strftime('%Y-%m-%d %H:%M')}")
-                    plan_df = pd.DataFrame(st.session_state["selected_meals"])
+                    plan_df = pd.DataFrame(st.session_state["selected_meals"]).drop(columns=["uid"], errors="ignore")
                     plan_df["Count"] = 1
                     totals_row = pd.DataFrame([{
                         "Meal name":"TOTALS",
@@ -499,7 +500,7 @@ def main():
 
                 name_md = f"**{name}**  \n_{mtype}_"
                 if new_val:
-                    name_md = f"~~{name_md}~~"  # strike-through completed items
+                    name_md = f"~~**{name}**~~  \n~~_{mtype}_~~"
 
                 cols[1].markdown(name_md)
                 cols[2].write(f"{p:.1f} g P")
