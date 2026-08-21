@@ -466,7 +466,7 @@ def main():
         st.subheader("Daily meal options")
         st.caption(
             "Each day starts with Skyr, uses a Morrisons freezer meal, and finishes with Huel. "
-            "Snacks fill the remaining protein and carbs under the default caps."
+            "At most two protein shakes a day; other meals fill remaining macros under the default caps."
         )
         daily_plans = read_daily_options()
         if not daily_plans:

@@ -2,7 +2,7 @@
   {
     "id": "8c2a1d7e-6b3f-4a91-9e2c-1f0b7a4d6c11",
     "name": "Tikka freezer day",
-    "notes": "Starts with Skyr, Gym Kitchen Chicken Tikka Masala for lunch, Huel as the last meal.",
+    "notes": "Starts with Skyr, Gym Kitchen Chicken Tikka Masala for lunch, roast cod in the afternoon, Huel as the last meal. At most two protein shakes.",
     "caps": {
       "Protein": 190,
       "Carb": 253,
@@ -15,6 +15,14 @@
         "Protein": 19.7,
         "Carb": 10.3,
         "Fat": 9.8,
+        "slot": "Breakfast"
+      },
+      {
+        "Meal name": "Heylo Toast",
+        "Meal type": "Breakfast",
+        "Protein": 15.4,
+        "Carb": 2.4,
+        "Fat": 6.4,
         "slot": "Breakfast"
       },
       {
@@ -34,11 +42,27 @@
         "slot": "Lunch"
       },
       {
+        "Meal name": "Roast cod with creamy mushroom lentils",
+        "Meal type": "Dinner/Lunch",
+        "Protein": 37.2,
+        "Carb": 25.9,
+        "Fat": 4.0,
+        "slot": "Afternoon meal"
+      },
+      {
         "Meal name": "Protein shake ",
         "Meal type": "Snack ",
         "Protein": 24.0,
         "Carb": 1.6,
         "Fat": 1.4,
+        "slot": "Afternoon snack"
+      },
+      {
+        "Meal name": "Pasta",
+        "Meal type": "Snack",
+        "Protein": 5.8,
+        "Carb": 31.5,
+        "Fat": 0.4,
         "slot": "Afternoon snack"
       },
       {
@@ -47,54 +71,22 @@
         "Protein": 1.3,
         "Carb": 27.0,
         "Fat": 0.4,
-        "slot": "Afternoon snack"
-      },
-      {
-        "Meal name": "Pasta",
-        "Meal type": "Snack",
-        "Protein": 5.8,
-        "Carb": 31.5,
-        "Fat": 0.4,
-        "slot": "Afternoon snack"
-      },
-      {
-        "Meal name": "Protein shake ",
-        "Meal type": "Snack ",
-        "Protein": 24.0,
-        "Carb": 1.6,
-        "Fat": 1.4,
         "slot": "Later snack"
       },
       {
-        "Meal name": "Apple",
+        "Meal name": "Banana",
         "Meal type": "Snack ",
-        "Protein": 0.5,
-        "Carb": 25.0,
-        "Fat": 0.3,
+        "Protein": 1.3,
+        "Carb": 27.0,
+        "Fat": 0.4,
         "slot": "Later snack"
       },
       {
-        "Meal name": "Pasta",
-        "Meal type": "Snack",
-        "Protein": 5.8,
-        "Carb": 31.5,
+        "Meal name": "Banana",
+        "Meal type": "Snack ",
+        "Protein": 1.3,
+        "Carb": 27.0,
         "Fat": 0.4,
-        "slot": "Evening snack"
-      },
-      {
-        "Meal name": "Protein shake ",
-        "Meal type": "Snack ",
-        "Protein": 24.0,
-        "Carb": 1.6,
-        "Fat": 1.4,
-        "slot": "Evening snack"
-      },
-      {
-        "Meal name": "Apple",
-        "Meal type": "Snack ",
-        "Protein": 0.5,
-        "Carb": 25.0,
-        "Fat": 0.3,
         "slot": "Evening snack"
       },
       {
@@ -110,7 +102,7 @@
   {
     "id": "b7e4c902-1d58-4f33-a6c0-9a2e5d8f0147",
     "name": "Sweet & Sour freezer day",
-    "notes": "Starts with Skyr, Morrisons Counted Sweet & Sour Chicken for lunch, Huel as the last meal. Heylo toast helps hit protein.",
+    "notes": "Starts with Skyr, Morrisons Counted Sweet & Sour Chicken for lunch, roast cod in the afternoon, Huel as the last meal. At most two protein shakes; extra Heylo toast helps hit protein.",
     "caps": {
       "Protein": 190,
       "Carb": 253,
@@ -132,6 +124,14 @@
         "Carb": 2.4,
         "Fat": 6.4,
         "slot": "Breakfast"
+      },
+      {
+        "Meal name": "Heylo Toast",
+        "Meal type": "Breakfast",
+        "Protein": 15.4,
+        "Carb": 2.4,
+        "Fat": 6.4,
+        "slot": "Morning snack"
       },
       {
         "Meal name": "Protein shake ",
@@ -150,19 +150,19 @@
         "slot": "Lunch"
       },
       {
+        "Meal name": "Roast cod with creamy mushroom lentils",
+        "Meal type": "Dinner/Lunch",
+        "Protein": 37.2,
+        "Carb": 25.9,
+        "Fat": 4.0,
+        "slot": "Afternoon meal"
+      },
+      {
         "Meal name": "Protein shake ",
         "Meal type": "Snack ",
         "Protein": 24.0,
         "Carb": 1.6,
         "Fat": 1.4,
-        "slot": "Afternoon snack"
-      },
-      {
-        "Meal name": "Banana",
-        "Meal type": "Snack ",
-        "Protein": 1.3,
-        "Carb": 27.0,
-        "Fat": 0.4,
         "slot": "Afternoon snack"
       },
       {
@@ -174,11 +174,11 @@
         "slot": "Afternoon snack"
       },
       {
-        "Meal name": "Protein shake ",
+        "Meal name": "Banana",
         "Meal type": "Snack ",
-        "Protein": 24.0,
-        "Carb": 1.6,
-        "Fat": 1.4,
+        "Protein": 1.3,
+        "Carb": 27.0,
+        "Fat": 0.4,
         "slot": "Later snack"
       },
       {
@@ -190,27 +190,11 @@
         "slot": "Later snack"
       },
       {
-        "Meal name": "Pasta",
-        "Meal type": "Snack",
-        "Protein": 5.8,
-        "Carb": 31.5,
+        "Meal name": "Banana",
+        "Meal type": "Snack ",
+        "Protein": 1.3,
+        "Carb": 27.0,
         "Fat": 0.4,
-        "slot": "Evening snack"
-      },
-      {
-        "Meal name": "Protein shake ",
-        "Meal type": "Snack ",
-        "Protein": 24.0,
-        "Carb": 1.6,
-        "Fat": 1.4,
-        "slot": "Evening snack"
-      },
-      {
-        "Meal name": "Apple",
-        "Meal type": "Snack ",
-        "Protein": 0.5,
-        "Carb": 25.0,
-        "Fat": 0.3,
         "slot": "Evening snack"
       },
       {
@@ -226,7 +210,7 @@
   {
     "id": "d1f08a36-c4b2-4e79-8f15-3a6c9e2b7048",
     "name": "Chicken Hotpot freezer day",
-    "notes": "Starts with Skyr, Morrisons Counted Chicken Hotpot for lunch, Huel as the last meal. Heylo toast helps hit protein.",
+    "notes": "Starts with Skyr, Morrisons Counted Chicken Hotpot for lunch, roast cod in the afternoon, Huel as the last meal. At most two protein shakes; extra Heylo toast helps hit protein.",
     "caps": {
       "Protein": 190,
       "Carb": 253,
@@ -250,6 +234,14 @@
         "slot": "Breakfast"
       },
       {
+        "Meal name": "Heylo Toast",
+        "Meal type": "Breakfast",
+        "Protein": 15.4,
+        "Carb": 2.4,
+        "Fat": 6.4,
+        "slot": "Morning snack"
+      },
+      {
         "Meal name": "Protein shake ",
         "Meal type": "Snack ",
         "Protein": 24.0,
@@ -266,19 +258,19 @@
         "slot": "Lunch"
       },
       {
+        "Meal name": "Roast cod with creamy mushroom lentils",
+        "Meal type": "Dinner/Lunch",
+        "Protein": 37.2,
+        "Carb": 25.9,
+        "Fat": 4.0,
+        "slot": "Afternoon meal"
+      },
+      {
         "Meal name": "Protein shake ",
         "Meal type": "Snack ",
         "Protein": 24.0,
         "Carb": 1.6,
         "Fat": 1.4,
-        "slot": "Afternoon snack"
-      },
-      {
-        "Meal name": "Banana",
-        "Meal type": "Snack ",
-        "Protein": 1.3,
-        "Carb": 27.0,
-        "Fat": 0.4,
         "slot": "Afternoon snack"
       },
       {
@@ -290,11 +282,11 @@
         "slot": "Afternoon snack"
       },
       {
-        "Meal name": "Protein shake ",
+        "Meal name": "Banana",
         "Meal type": "Snack ",
-        "Protein": 24.0,
-        "Carb": 1.6,
-        "Fat": 1.4,
+        "Protein": 1.3,
+        "Carb": 27.0,
+        "Fat": 0.4,
         "slot": "Later snack"
       },
       {
@@ -306,19 +298,11 @@
         "slot": "Later snack"
       },
       {
-        "Meal name": "Pasta",
-        "Meal type": "Snack",
-        "Protein": 5.8,
-        "Carb": 31.5,
-        "Fat": 0.4,
-        "slot": "Evening snack"
-      },
-      {
-        "Meal name": "Protein shake ",
+        "Meal name": "Banana",
         "Meal type": "Snack ",
-        "Protein": 24.0,
-        "Carb": 1.6,
-        "Fat": 1.4,
+        "Protein": 1.3,
+        "Carb": 27.0,
+        "Fat": 0.4,
         "slot": "Evening snack"
       },
       {
@@ -342,7 +326,7 @@
   {
     "id": "e5a91c70-2f46-4b18-9d33-7c0e1a8f5926",
     "name": "Tikka + Hotpot day",
-    "notes": "Starts with Skyr, Tikka for lunch and Hotpot later, Huel as the last meal.",
+    "notes": "Starts with Skyr, Tikka for lunch and Hotpot later, Huel as the last meal. At most two protein shakes; extra Heylo toast and pasta cover the remaining protein.",
     "caps": {
       "Protein": 190,
       "Carb": 253,
@@ -364,6 +348,14 @@
         "Carb": 2.4,
         "Fat": 6.4,
         "slot": "Breakfast"
+      },
+      {
+        "Meal name": "Heylo Toast",
+        "Meal type": "Breakfast",
+        "Protein": 15.4,
+        "Carb": 2.4,
+        "Fat": 6.4,
+        "slot": "Morning snack"
       },
       {
         "Meal name": "Protein shake ",
@@ -390,10 +382,18 @@
         "slot": "Afternoon snack"
       },
       {
-        "Meal name": "Banana",
-        "Meal type": "Snack ",
-        "Protein": 1.3,
-        "Carb": 27.0,
+        "Meal name": "Pasta",
+        "Meal type": "Snack",
+        "Protein": 5.8,
+        "Carb": 31.5,
+        "Fat": 0.4,
+        "slot": "Afternoon snack"
+      },
+      {
+        "Meal name": "Pasta",
+        "Meal type": "Snack",
+        "Protein": 5.8,
+        "Carb": 31.5,
         "Fat": 0.4,
         "slot": "Afternoon snack"
       },
@@ -412,22 +412,6 @@
         "Carb": 34.1,
         "Fat": 4.4,
         "slot": "Dinner"
-      },
-      {
-        "Meal name": "Protein shake ",
-        "Meal type": "Snack ",
-        "Protein": 24.0,
-        "Carb": 1.6,
-        "Fat": 1.4,
-        "slot": "Evening snack"
-      },
-      {
-        "Meal name": "Banana",
-        "Meal type": "Snack ",
-        "Protein": 1.3,
-        "Carb": 27.0,
-        "Fat": 0.4,
-        "slot": "Evening snack"
       },
       {
         "Meal name": "Apple",
