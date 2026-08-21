@@ -10,6 +10,7 @@ import gspread
 
 APP_TITLE = "Macro-Aware Meal Planner"
 SAVED_FILE = Path("saved_meal_plans.json")
+DAILY_OPTIONS_FILE = Path("daily_meal_options.json")
 DEFAULT_CSV = Path("Macro_Meals.csv")
 REQUIRED_COLS = ["Meal name","Meal type","Protein","Carb","Fat"]
 
@@ -145,6 +146,26 @@ def read_saved():
                 return []
     return []
 
+def read_daily_options():
+    if DAILY_OPTIONS_FILE.exists():
+        with open(DAILY_OPTIONS_FILE, "r", encoding="utf-8") as f:
+            try:
+                data = json.load(f)
+                return data if isinstance(data, list) else []
+            except Exception:
+                return []
+    return []
+
+def plan_macro_totals(meals):
+    meals_df = pd.DataFrame(meals)
+    if meals_df.empty:
+        return {"Protein": 0.0, "Carb": 0.0, "Fat": 0.0}
+    return {
+        "Protein": float(meals_df["Protein"].sum()),
+        "Carb": float(meals_df["Carb"].sum()),
+        "Fat": float(meals_df["Fat"].sum()),
+    }
+
 def write_saved(plans):
     with open(SAVED_FILE, "w", encoding="utf-8") as f:
         json.dump(plans, f, indent=2)
@@ -175,7 +196,7 @@ def save_current_plan(name):
     st.success(f"Saved plan as “{payload['name']}”.")
 
 def load_plan(plan_id):
-    plans = read_saved()
+    plans = read_saved() + read_daily_options()
     match = next((p for p in plans if p["id"] == plan_id), None)
     if not match:
         st.error("Plan not found.")
@@ -226,7 +247,7 @@ def main():
     st.title(APP_TITLE)
     ensure_state()
 
-    tabs = st.tabs(["🧰 Builder", "💾 Saved Plans"])
+    tabs = st.tabs(["🧰 Builder", "📅 Daily Options", "💾 Saved Plans"])
 
     # ---------------- Builder Tab ----------------
     with tabs[0]:
@@ -440,8 +461,63 @@ def main():
         with st.expander("Preview full dataset"):
             st.dataframe(df, use_container_width=True)
 
-    # ---------------- Saved Plans Tab ----------------
+    # ---------------- Daily Options Tab ----------------
     with tabs[1]:
+        st.subheader("Daily meal options")
+        st.caption(
+            "Each day starts with Skyr, uses a Morrisons freezer meal, and finishes with Huel. "
+            "Snacks fill the remaining protein and carbs under the default caps."
+        )
+        daily_plans = read_daily_options()
+        if not daily_plans:
+            st.info("No daily options found. Add `daily_meal_options.json` next to the app.")
+        else:
+            names = [p["name"] for p in daily_plans]
+            sel = st.selectbox("Choose a day", options=list(range(len(daily_plans))), format_func=lambda i: names[i])
+            chosen = daily_plans[sel]
+            meals = chosen.get("meals", [])
+            caps = chosen.get("caps", st.session_state["caps"])
+            totals = plan_macro_totals(meals)
+
+            if chosen.get("notes"):
+                st.write(chosen["notes"])
+
+            st.write(f"**Caps:** P {caps.get('Protein',0)}g • C {caps.get('Carb',0)}g • F {caps.get('Fat',0)}g")
+            leftover = {
+                "Protein": float(caps.get("Protein", 0) or 0) - totals["Protein"],
+                "Carb": float(caps.get("Carb", 0) or 0) - totals["Carb"],
+                "Fat": float(caps.get("Fat", 0) or 0) - totals["Fat"],
+            }
+            st.write(
+                f"**Totals:** P {totals['Protein']:.1f}g • C {totals['Carb']:.1f}g • F {totals['Fat']:.1f}g"
+            )
+            st.write(
+                f"**Left under cap:** P {leftover['Protein']:.1f}g • C {leftover['Carb']:.1f}g • F {leftover['Fat']:.1f}g"
+            )
+
+            macro_bar("Protein", totals["Protein"], caps.get("Protein", 0))
+            macro_bar("Carbs", totals["Carb"], caps.get("Carb", 0))
+            macro_bar("Fat", totals["Fat"], caps.get("Fat", 0))
+
+            st.markdown("**Eat in this order:**")
+            for meal in meals:
+                slot = str(meal.get("slot") or meal.get("Meal type", "")).strip()
+                name = str(meal.get("Meal name", "")).strip()
+                p = float(meal.get("Protein", 0))
+                c = float(meal.get("Carb", 0))
+                f = float(meal.get("Fat", 0))
+                cols = st.columns([1.4, 3, 1, 1, 1])
+                cols[0].markdown(f"_{slot}_")
+                cols[1].markdown(f"**{name}**")
+                cols[2].write(f"{p:.1f} g P")
+                cols[3].write(f"{c:.1f} g C")
+                cols[4].write(f"{f:.1f} g F")
+
+            if st.button("📥 Load this day into Builder", use_container_width=True):
+                load_plan(chosen["id"])
+
+    # ---------------- Saved Plans Tab ----------------
+    with tabs[2]:
         st.subheader("Saved Meal Plans")
         plans = read_saved()
         if not plans:
@@ -456,15 +532,10 @@ def main():
             chosen = plans_sorted[sel]
             plan_id = chosen["id"]
 
-            # Build meals df and totals
+            # Build meals and totals
             meals = chosen.get("meals", [])
-            meals_df = pd.DataFrame(meals)
             caps = chosen.get("caps", {"Protein":0, "Carb":0, "Fat":0})
-            totals = {
-                "Protein": float(meals_df["Protein"].sum()) if not meals_df.empty else 0.0,
-                "Carb": float(meals_df["Carb"].sum()) if not meals_df.empty else 0.0,
-                "Fat": float(meals_df["Fat"].sum()) if not meals_df.empty else 0.0,
-            }
+            totals = plan_macro_totals(meals)
 
             st.write(f"**Caps:** P {caps.get('Protein',0)}g • C {caps.get('Carb',0)}g • F {caps.get('Fat',0)}g")
             st.write(f"**Totals (all meals):** P {totals['Protein']:.1f}g • C {totals['Carb']:.1f}g • F {totals['Fat']:.1f}g")
